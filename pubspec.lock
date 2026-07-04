@@ -148,7 +148,7 @@ packages:
   flusbserial:
     dependency: "direct main"
     description:
-      path: "../flusbserial"
+      path: "third_party/flusbserial"
       relative: true
     source: path
     version: "0.6.0"

@@ -38,8 +38,13 @@ dependencies:
   yaru: ^10.2.0
   flutter_riverpod: ^2.6.1
   fl_chart: ^0.71.0
+  # Vendored, patched fork of AsCress/flusbserial: fixes the CDC reopen/
+  # reconnect lifecycle (static-shared usbInterface, close() interface leak,
+  # open() failure cleanup). Vendored (not a git: dep) so clones and snap
+  # builds are self-contained and need no host git. See third_party/flusbserial/
+  # VENDORED.md; upstream fork: github.com/firechip/flusbserial.
   flusbserial:
-    path: ../flusbserial
+    path: third_party/flusbserial
   cobs_codec: ^1.0.0
 
 dev_dependencies:
