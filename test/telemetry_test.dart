@@ -40,4 +40,54 @@ void main() {
     expect(isLikelyBoard(0x2E8A), isTrue);
     expect(isLikelyBoard(0x1234), isFalse);
   });
+
+  group('classifyLinkError', () {
+    test('an unplug reads as a recoverable disconnect, not a hard error', () {
+      // Exactly what flusbserial throws from its read loop.
+      final f = classifyLinkError('bulkTransferIn error: LIBUSB_ERROR_NO_DEVICE');
+      expect(f.kind, LinkFaultKind.disconnected);
+      expect(f.recoverable, isTrue);
+      expect(f.code, 'LIBUSB_ERROR_NO_DEVICE');
+      expect(f.message, 'Device disconnected');
+      expect(f.codeSuffix, ' (LIBUSB_ERROR_NO_DEVICE)');
+    });
+
+    test('the WSL usb/ip URB reset (IO) is treated as a recoverable drop', () {
+      final f = classifyLinkError('bulkTransferIn error: LIBUSB_ERROR_IO');
+      expect(f.kind, LinkFaultKind.disconnected);
+      expect(f.recoverable, isTrue);
+    });
+
+    test('permission and busy are user-fixable, not recoverable', () {
+      final access = classifyLinkError('controlTransfer error: LIBUSB_ERROR_ACCESS');
+      expect(access.kind, LinkFaultKind.permission);
+      expect(access.recoverable, isFalse);
+
+      final busy = classifyLinkError('busy: the device is in use by another program');
+      expect(busy.kind, LinkFaultKind.busy);
+      expect(busy.recoverable, isFalse);
+    });
+
+    test('every libusb_error name is mapped (no UNKNOWN fallthrough)', () {
+      const names = [
+        'LIBUSB_ERROR_IO', 'LIBUSB_ERROR_INVALID_PARAM', 'LIBUSB_ERROR_ACCESS',
+        'LIBUSB_ERROR_NO_DEVICE', 'LIBUSB_ERROR_NOT_FOUND', 'LIBUSB_ERROR_BUSY',
+        'LIBUSB_ERROR_TIMEOUT', 'LIBUSB_ERROR_OVERFLOW', 'LIBUSB_ERROR_PIPE',
+        'LIBUSB_ERROR_INTERRUPTED', 'LIBUSB_ERROR_NO_MEM',
+        'LIBUSB_ERROR_NOT_SUPPORTED', 'LIBUSB_ERROR_OTHER',
+      ];
+      for (final n in names) {
+        final f = classifyLinkError('bulkTransferIn error: $n');
+        expect(f.code, n, reason: '$n should carry its code');
+        expect(f.message, isNotEmpty, reason: '$n should have a message');
+      }
+    });
+
+    test('an unrecognised error degrades to a labelled unknown', () {
+      final f = classifyLinkError('something weird happened');
+      expect(f.kind, LinkFaultKind.unknown);
+      expect(f.message, contains('something weird'));
+      expect(f.codeSuffix, isEmpty);
+    });
+  });
 }

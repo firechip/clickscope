@@ -106,7 +106,7 @@ class TelemetryState {
   }
 }
 
-enum ConnStatus { disconnected, connecting, connected, error }
+enum ConnStatus { disconnected, connecting, connected, reconnecting, error }
 
 final telemetryProvider =
     NotifierProvider<TelemetryController, TelemetryState>(TelemetryController.new);
@@ -253,7 +253,17 @@ class TelemetryController extends Notifier<TelemetryState> {
         _slog('close-after-error also failed: $e2');
       }
       _device = null;
-      state = state.copyWith(status: ConnStatus.error, message: _friendlyError(e));
+      final fault = classifyLinkError(e);
+      // If an auto-reconnect watch is running, keep the "reconnecting" status
+      // for a recoverable fault so the UI doesn't flicker to a hard error
+      // between attempts.
+      final reconnecting = _reconnectTimer != null && fault.recoverable;
+      state = state.copyWith(
+        status: reconnecting ? ConnStatus.reconnecting : ConnStatus.error,
+        message: reconnecting
+            ? '${fault.message}${fault.codeSuffix} — reconnecting…'
+            : '${fault.message}${fault.codeSuffix}',
+      );
     }
   }
 
@@ -285,25 +295,6 @@ class TelemetryController extends Notifier<TelemetryState> {
       await device.close();
     } catch (_) {}
     return null;
-  }
-
-  String _friendlyError(Object e) {
-    final m = e.toString().toLowerCase();
-    if (m.contains('busy') || m.contains('claim') || m.contains('resource')) {
-      return 'Device is in use by another program (close any serial monitor / '
-          'unplug-replug), then Connect again.';
-    }
-    if (m.contains('access') || m.contains('permission')) {
-      return 'Permission denied — add yourself to the "dialout" group: '
-          'sudo usermod -aG dialout \$USER (then log out / back in).';
-    }
-    if (m.contains('no device') || m.contains('not found') || m.contains('no such')) {
-      return 'Device disappeared — replug it and Rescan.';
-    }
-    if (m.contains('timeout') || m.contains('timed out')) {
-      return 'Timed out opening the device — is it still attached? Replug and retry.';
-    }
-    return 'Error: $e';
   }
 
   Future<void> disconnect({bool silent = false}) async {
@@ -356,27 +347,34 @@ class TelemetryController extends Notifier<TelemetryState> {
       try {
         data = await dev.read(256, 5);
       } catch (e) {
-        final m = e.toString().toLowerCase();
-        if (!m.contains('timeout')) {
+        // A short read timeout is the normal "no data yet" case, not an error.
+        if (e.toString().toLowerCase().contains('timeout')) {
+          // fall through — data stays empty, the delay below yields the isolate
+        } else {
           _slog('read() error (loop exiting): $e');
           if (_reading) {
             _reading = false;
-            final unplugged = m.contains('no_device') ||
-                m.contains('no device') ||
-                m.contains('not found') ||
-                m.contains('no such');
-            // Free our handle so the port is available again, then watch for
-            // the board to reappear (unplug/replug, or WSL/usbip re-enumeration).
+            final fault = classifyLinkError(e);
+            _slog('  → ${fault.kind.name} ${fault.code} recoverable=${fault.recoverable}');
+            // Free our handle so the port is available for a reconnect.
             final d = _device;
             _device = null;
             if (d != null) unawaited(_closeQuietly(d));
-            state = state.copyWith(
-              status: ConnStatus.error,
-              message: unplugged
-                  ? 'Device disconnected — waiting for it to come back…'
-                  : 'Link lost: $e',
-            );
-            _startReconnectWatch();
+            if (fault.recoverable) {
+              // Device gone / link reset (unplug, board reset, or the WSL usb/ip
+              // transport dropping URBs) — show it as a disconnect and watch for
+              // it to come back rather than flagging a hard error.
+              state = state.copyWith(
+                status: ConnStatus.reconnecting,
+                message: '${fault.message}${fault.codeSuffix} — reconnecting…',
+              );
+              _startReconnectWatch();
+            } else {
+              state = state.copyWith(
+                status: ConnStatus.error,
+                message: '${fault.message}${fault.codeSuffix}',
+              );
+            }
           }
           return;
         }

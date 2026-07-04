@@ -269,6 +269,15 @@ class _ConnectionPanelState extends ConsumerState<_ConnectionPanel> {
     if (s.status == ConnStatus.connecting) {
       return const SizedBox(width: 120, child: Center(child: YaruCircularProgressIndicator(strokeWidth: 3)));
     }
+    if (s.status == ConnStatus.reconnecting) {
+      // Auto-reconnect is running; offer a way to cancel it.
+      return OutlinedButton.icon(
+        onPressed: n.disconnect,
+        icon: const SizedBox(
+            width: 16, height: 16, child: YaruCircularProgressIndicator(strokeWidth: 2)),
+        label: const Text('Stop'),
+      );
+    }
     if (s.isConnected) {
       return OutlinedButton.icon(
         onPressed: n.disconnect,
@@ -338,13 +347,15 @@ class _ConnectionPanelState extends ConsumerState<_ConnectionPanel> {
   String _stateLabel(TelemetryState s) => switch (s.status) {
         ConnStatus.connected => 'Streaming',
         ConnStatus.connecting => 'Connecting',
+        ConnStatus.reconnecting => 'Reconnecting…',
         ConnStatus.error => 'Error',
-        ConnStatus.disconnected => 'Idle',
+        ConnStatus.disconnected => 'Disconnected',
       };
 
   Color _stateColor(BuildContext context, ConnStatus st) => switch (st) {
         ConnStatus.connected => const Color(0xFF2EB398),
         ConnStatus.connecting => const Color(0xFFF39C12),
+        ConnStatus.reconnecting => const Color(0xFFF39C12),
         ConnStatus.error => Theme.of(context).colorScheme.error,
         ConnStatus.disconnected => Theme.of(context).disabledColor,
       };
