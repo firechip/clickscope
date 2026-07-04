@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.firechip.clickscope</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Clickscope</name>
+  <summary>Live oscilloscope for Click-board accelerometer telemetry</summary>
+  <description>
+    <p>
+      Clickscope connects to a MikroElektronika Click board running the
+      clickforge firmware, decodes its COBS/CRC telemetry over USB CDC-ACM, and
+      shows the 3-axis accelerometer stream live: a scrolling X/Y/Z plus
+      magnitude plot, a bubble-level tilt view, numeric readouts, streaming rate
+      and CRC-error statistics, a device console, and CSV recording.
+    </p>
+  </description>
+  <launchable type="desktop-id">clickscope.desktop</launchable>
+  <categories>
+    <category>Utility</category>
+    <category>Electronics</category>
+  </categories>
+  <url type="homepage">https://github.com/firechip/clickscope</url>
+  <developer id="dev.firechip">
+    <name>Firechip</name>
+  </developer>
+  <content_rating type="oars-1.1" />
+</component>

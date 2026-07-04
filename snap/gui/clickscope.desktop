@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Clickscope
+GenericName=Telemetry Oscilloscope
+Comment=Live accelerometer telemetry from Click-board firmware
+Exec=clickscope
+Icon=${SNAP}/meta/gui/clickscope.png
+Terminal=false
+Type=Application
+Categories=Utility;Development;Electronics;
+Keywords=serial;usb;accelerometer;telemetry;oscilloscope;click;mikroe;

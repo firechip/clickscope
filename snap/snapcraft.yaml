@@ -1,0 +1,42 @@
+name: clickscope
+base: core22
+version: '1.0.0'
+summary: Live oscilloscope for Click-board accelerometer telemetry
+description: |
+  Clickscope connects to a MikroElektronika Click board running the clickforge
+  firmware, decodes its COBS/CRC accelerometer telemetry over USB CDC-ACM, and
+  visualises the 3-axis stream live: a scrolling X/Y/Z + magnitude plot, a
+  bubble-level tilt view, numeric readouts, streaming-rate and CRC-error stats,
+  a device console, and one-click CSV recording. Ubuntu-native (Flutter + Yaru).
+
+  After install, grant USB-serial access:
+    sudo snap connect clickscope:serial-port
+  and, for raw CDC-ACM adapters that appear as generic USB:
+    sudo snap connect clickscope:raw-usb
+
+grade: stable
+confinement: strict
+
+apps:
+  clickscope:
+    command: clickscope
+    extensions: [gnome]
+    desktop: snap/gui/clickscope.desktop
+    plugs:
+      # /dev/ttyACM* /dev/ttyUSB* — the CDC-ACM node the board enumerates as.
+      # Hotplug-created and NOT auto-connected: the user runs `snap connect`.
+      - serial-port
+      # Fallback for adapters snapd exposes only as a raw USB device.
+      - raw-usb
+      - hardware-observe
+
+parts:
+  clickscope:
+    plugin: flutter
+    source: .
+    flutter-target: lib/main.dart
+    build-packages:
+      - libusb-1.0-0-dev
+      - pkg-config
+    stage-packages:
+      - libusb-1.0-0
