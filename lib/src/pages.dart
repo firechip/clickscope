@@ -54,7 +54,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       )
                     : _chartCard(s),
               ),
-              if (!wide) ...[const SizedBox(height: 16), SizedBox(height: 300, child: _sideRail(s))],
+              if (!wide) ...[
+                const SizedBox(height: 16),
+                SizedBox(height: 300, child: _sideRail(s))
+              ],
             ],
           );
         },
@@ -66,11 +69,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Tooltip(
-        message: s.recording ? 'Stop recording (${s.recordCount} rows)' : 'Record to CSV',
+        message: s.recording
+            ? 'Stop recording (${s.recordCount} rows)'
+            : 'Record to CSV',
         child: YaruIconButton(
-          icon: Icon(s.recording ? YaruIcons.media_stop : YaruIcons.media_record,
+          icon: Icon(
+              s.recording ? YaruIcons.media_stop : YaruIcons.media_record,
               color: s.recording ? Theme.of(context).colorScheme.error : null),
-          onPressed: () => ref.read(telemetryProvider.notifier).toggleRecording(),
+          onPressed: () =>
+              ref.read(telemetryProvider.notifier).toggleRecording(),
         ),
       ),
     );
@@ -82,10 +89,26 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        AxisChip(label: 'X', color: AxisColors.x, selected: _show.contains('x'), onTap: () => _toggle('x')),
-        AxisChip(label: 'Y', color: AxisColors.y, selected: _show.contains('y'), onTap: () => _toggle('y')),
-        AxisChip(label: 'Z', color: AxisColors.z, selected: _show.contains('z'), onTap: () => _toggle('z')),
-        AxisChip(label: '|a|', color: AxisColors.mag, selected: _show.contains('mag'), onTap: () => _toggle('mag')),
+        AxisChip(
+            label: 'X',
+            color: AxisColors.x,
+            selected: _show.contains('x'),
+            onTap: () => _toggle('x')),
+        AxisChip(
+            label: 'Y',
+            color: AxisColors.y,
+            selected: _show.contains('y'),
+            onTap: () => _toggle('y')),
+        AxisChip(
+            label: 'Z',
+            color: AxisColors.z,
+            selected: _show.contains('z'),
+            onTap: () => _toggle('z')),
+        AxisChip(
+            label: '|a|',
+            color: AxisColors.mag,
+            selected: _show.contains('mag'),
+            onTap: () => _toggle('mag')),
         const SizedBox(width: 12),
         const Text('Window'),
         for (final w in const [10.0, 20.0, 60.0])
@@ -101,7 +124,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Widget _chartCard(TelemetryState s) {
     return YaruBorderContainer(
       padding: const EdgeInsets.fromLTRB(8, 20, 20, 8),
-      child: ScopeChart(samples: s.samples, windowSeconds: _window, show: _show),
+      child:
+          ScopeChart(samples: s.samples, windowSeconds: _window, show: _show),
     );
   }
 
@@ -220,13 +244,18 @@ class _ConnectionPanelState extends ConsumerState<_ConnectionPanel> {
                           ),
                         ),
                     ],
-                    onChanged: s.isConnected ? null : (d) => setState(() => _selected = d),
+                    onChanged: s.isConnected
+                        ? null
+                        : (d) => setState(() => _selected = d),
                   ),
                 ),
                 const SizedBox(width: 8),
                 YaruIconButton(
                   icon: _scanning
-                      ? const SizedBox(width: 18, height: 18, child: YaruCircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: YaruCircularProgressIndicator(strokeWidth: 2))
                       : const Icon(YaruIcons.refresh),
                   onPressed: s.isConnected || _scanning ? null : _rescan,
                   tooltip: 'Rescan',
@@ -240,23 +269,44 @@ class _ConnectionPanelState extends ConsumerState<_ConnectionPanel> {
               spacing: 24,
               runSpacing: 12,
               children: [
-                _stat(context, 'State', _stateLabel(s), _stateColor(context, s.status), dot: true),
-                _stat(context, 'Rate', s.isConnected ? '${s.fps.toStringAsFixed(1)} Hz' : '—', theme.colorScheme.onSurface),
-                _stat(context, 'WHO_AM_I', s.whoAmI.isEmpty ? '—' : '${s.whoAmI} ${s.whoAmIOk ? "OK" : ""}',
-                    s.whoAmI.isEmpty ? theme.disabledColor : (s.whoAmIOk ? const Color(0xFF2EB398) : theme.colorScheme.error)),
+                _stat(context, 'State', _stateLabel(s),
+                    _stateColor(context, s.status),
+                    dot: true),
+                _stat(
+                    context,
+                    'Rate',
+                    s.isConnected ? '${s.fps.toStringAsFixed(1)} Hz' : '—',
+                    theme.colorScheme.onSurface),
+                _stat(
+                    context,
+                    'WHO_AM_I',
+                    s.whoAmI.isEmpty
+                        ? '—'
+                        : '${s.whoAmI} ${s.whoAmIOk ? "OK" : ""}',
+                    s.whoAmI.isEmpty
+                        ? theme.disabledColor
+                        : (s.whoAmIOk
+                            ? const Color(0xFF2EB398)
+                            : theme.colorScheme.error)),
                 _crcStat(context, s),
               ],
             ),
             const SizedBox(height: 8),
-            Text(s.message, style: theme.textTheme.bodySmall?.copyWith(color: theme.disabledColor)),
+            Text(s.message,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.disabledColor)),
             if (s.recording)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Row(children: [
-                  Icon(YaruIcons.media_record, size: 14, color: theme.colorScheme.error),
+                  Icon(YaruIcons.media_record,
+                      size: 14, color: theme.colorScheme.error),
                   const SizedBox(width: 6),
-                  Expanded(child: Text('Recording ${s.recordCount} rows → ${s.recordPath}',
-                      overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall)),
+                  Expanded(
+                      child: Text(
+                          'Recording ${s.recordCount} rows → ${s.recordPath}',
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall)),
                 ]),
               ),
           ],
@@ -265,16 +315,21 @@ class _ConnectionPanelState extends ConsumerState<_ConnectionPanel> {
     );
   }
 
-  Widget _connectButton(BuildContext context, TelemetryState s, TelemetryController n) {
+  Widget _connectButton(
+      BuildContext context, TelemetryState s, TelemetryController n) {
     if (s.status == ConnStatus.connecting) {
-      return const SizedBox(width: 120, child: Center(child: YaruCircularProgressIndicator(strokeWidth: 3)));
+      return const SizedBox(
+          width: 120,
+          child: Center(child: YaruCircularProgressIndicator(strokeWidth: 3)));
     }
     if (s.status == ConnStatus.reconnecting) {
       // Auto-reconnect is running; offer a way to cancel it.
       return OutlinedButton.icon(
         onPressed: n.disconnect,
         icon: const SizedBox(
-            width: 16, height: 16, child: YaruCircularProgressIndicator(strokeWidth: 2)),
+            width: 16,
+            height: 16,
+            child: YaruCircularProgressIndicator(strokeWidth: 2)),
         label: const Text('Stop'),
       );
     }
@@ -292,7 +347,8 @@ class _ConnectionPanelState extends ConsumerState<_ConnectionPanel> {
     );
   }
 
-  Widget _stat(BuildContext context, String label, String value, Color color, {bool dot = false}) {
+  Widget _stat(BuildContext context, String label, String value, Color color,
+      {bool dot = false}) {
     final t = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,10 +358,15 @@ class _ConnectionPanelState extends ConsumerState<_ConnectionPanel> {
         const SizedBox(height: 2),
         Row(mainAxisSize: MainAxisSize.min, children: [
           if (dot) ...[
-            Container(width: 9, height: 9, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            Container(
+                width: 9,
+                height: 9,
+                decoration:
+                    BoxDecoration(color: color, shape: BoxShape.circle)),
             const SizedBox(width: 6),
           ],
-          Text(value, style: t.titleMedium?.copyWith(color: dot ? null : color)),
+          Text(value,
+              style: t.titleMedium?.copyWith(color: dot ? null : color)),
         ]),
       ],
     );
@@ -327,7 +388,8 @@ class _ConnectionPanelState extends ConsumerState<_ConnectionPanel> {
         children: [
           Text('CRC', style: t.labelSmall),
           const SizedBox(height: 2),
-          Text('${s.crcErrors} / ${s.framesOk + s.crcErrors}  (${(rate * 100).toStringAsFixed(2)}%)',
+          Text(
+              '${s.crcErrors} / ${s.framesOk + s.crcErrors}  (${(rate * 100).toStringAsFixed(2)}%)',
               style: t.titleMedium),
           const SizedBox(height: 4),
           ClipRRect(
@@ -388,7 +450,8 @@ class ConsolePage extends ConsumerWidget {
                   itemCount: log.length,
                   itemBuilder: (context, i) => Text(
                     log[log.length - 1 - i],
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                    style:
+                        const TextStyle(fontFamily: 'monospace', fontSize: 13),
                   ),
                 ),
         ),
@@ -421,7 +484,8 @@ class SettingsPage extends ConsumerWidget {
                   YaruRadioListTile<ThemeMode>(
                     value: m,
                     groupValue: mode,
-                    onChanged: (v) => ref.read(themeModeProvider.notifier).set(v!),
+                    onChanged: (v) =>
+                        ref.read(themeModeProvider.notifier).set(v!),
                     title: Text(switch (m) {
                       ThemeMode.system => 'Follow system',
                       ThemeMode.light => 'Light',
@@ -439,13 +503,16 @@ class SettingsPage extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Clickscope', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  Text('Clickscope',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   SizedBox(height: 6),
                   Text('A live oscilloscope for MikroElektronika Click-board '
                       'accelerometer telemetry, streamed over USB CDC as COBS/CRC '
                       'frames by the clickforge firmware.'),
                   SizedBox(height: 8),
-                  Text('Wire format: COBS(payload)+0x00, payload = '
+                  Text(
+                      'Wire format: COBS(payload)+0x00, payload = '
                       '[X i16 LE][Y i16 LE][Z i16 LE][CRC16-CCITT LE], milli-g.',
                       style: TextStyle(fontSize: 12)),
                 ],

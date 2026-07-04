@@ -109,8 +109,8 @@ class TelemetryState {
 
 enum ConnStatus { disconnected, connecting, connected, reconnecting, error }
 
-final telemetryProvider =
-    NotifierProvider<TelemetryController, TelemetryState>(TelemetryController.new);
+final telemetryProvider = NotifierProvider<TelemetryController, TelemetryState>(
+    TelemetryController.new);
 
 class TelemetryController extends Notifier<TelemetryState> {
   UsbSerialDevice? _device;
@@ -356,7 +356,8 @@ class TelemetryController extends Notifier<TelemetryState> {
           if (_reading) {
             _reading = false;
             final fault = classifyLinkError(e);
-            _slog('  → ${fault.kind.name} ${fault.code} recoverable=${fault.recoverable}');
+            _slog(
+                '  → ${fault.kind.name} ${fault.code} recoverable=${fault.recoverable}');
             // Free our handle so the port is available for a reconnect.
             final d = _device;
             _device = null;
@@ -537,11 +538,8 @@ class TelemetryController extends Notifier<TelemetryState> {
       return;
     }
     final home = Platform.environment['HOME'] ?? '.';
-    final ts = DateTime.now()
-        .toIso8601String()
-        .replaceAll(':', '-')
-        .split('.')
-        .first;
+    final ts =
+        DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
     _recordPath = '$home/clickscope-$ts.csv';
     _recordCount = 0;
     final f = File(_recordPath);

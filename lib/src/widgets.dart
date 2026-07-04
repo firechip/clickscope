@@ -36,10 +36,14 @@ class ScopeChart extends StatelessWidget {
     double tx(Sample s) => (s.t.millisecondsSinceEpoch - refMs) / 1000.0;
 
     final bars = <LineChartBarData>[
-      if (show.contains('x')) _bar(samples.map((s) => FlSpot(tx(s), s.x.toDouble())), AxisColors.x),
-      if (show.contains('y')) _bar(samples.map((s) => FlSpot(tx(s), s.y.toDouble())), AxisColors.y),
-      if (show.contains('z')) _bar(samples.map((s) => FlSpot(tx(s), s.z.toDouble())), AxisColors.z),
-      if (show.contains('mag')) _bar(samples.map((s) => FlSpot(tx(s), s.magnitude)), AxisColors.mag),
+      if (show.contains('x'))
+        _bar(samples.map((s) => FlSpot(tx(s), s.x.toDouble())), AxisColors.x),
+      if (show.contains('y'))
+        _bar(samples.map((s) => FlSpot(tx(s), s.y.toDouble())), AxisColors.y),
+      if (show.contains('z'))
+        _bar(samples.map((s) => FlSpot(tx(s), s.z.toDouble())), AxisColors.z),
+      if (show.contains('mag'))
+        _bar(samples.map((s) => FlSpot(tx(s), s.magnitude)), AxisColors.mag),
     ];
 
     final grid = Theme.of(context).dividerColor.withValues(alpha: 0.25);
@@ -54,12 +58,15 @@ class ScopeChart extends StatelessWidget {
           lineTouchData: const LineTouchData(enabled: false),
           gridData: FlGridData(
             drawVerticalLine: false,
-            getDrawingHorizontalLine: (_) => FlLine(color: grid, strokeWidth: 1),
+            getDrawingHorizontalLine: (_) =>
+                FlLine(color: grid, strokeWidth: 1),
           ),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -171,7 +178,8 @@ class _TiltPainter extends CustomPainter {
     final zg = (s.z / 1000.0).clamp(-1.0, 1.0);
     final dotColor = Color.lerp(
         const Color(0xFFC0392B), const Color(0xFF2EB398), (zg + 1) / 2)!;
-    canvas.drawCircle(pos, 10, Paint()..color = dotColor.withValues(alpha: 0.35));
+    canvas.drawCircle(
+        pos, 10, Paint()..color = dotColor.withValues(alpha: 0.35));
     canvas.drawCircle(pos, 6, Paint()..color = dotColor);
   }
 
@@ -226,18 +234,24 @@ class Readout extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 6),
           Text(label, style: t.labelMedium),
         ]),
         const SizedBox(height: 2),
-        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-          Text(value,
-              style: t.headlineSmall?.copyWith(
-                  fontFeatures: const [FontFeature.tabularFigures()])),
-          const SizedBox(width: 3),
-          Text(unit, style: t.bodySmall),
-        ]),
+        Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(value,
+                  style: t.headlineSmall?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()])),
+              const SizedBox(width: 3),
+              Text(unit, style: t.bodySmall),
+            ]),
       ],
     );
   }

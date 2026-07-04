@@ -8,7 +8,8 @@ import 'package:cobs_codec/cobs_codec.dart';
 /// mode, so the host applies no further scaling. See TELEMETRY_PROTOCOL.md.
 class Sample {
   Sample(this.t, this.x, this.y, this.z)
-      : magnitude = sqrt(x * x.toDouble() + y * y.toDouble() + z * z.toDouble());
+      : magnitude =
+            sqrt(x * x.toDouble() + y * y.toDouble() + z * z.toDouble());
 
   /// Host receive time (the wire carries no timestamp).
   final DateTime t;
@@ -46,7 +47,9 @@ int crc16Ccitt(List<int> data) {
   for (final b in data) {
     crc ^= b << 8;
     for (var i = 0; i < 8; i++) {
-      crc = (crc & 0x8000) != 0 ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+      crc = (crc & 0x8000) != 0
+          ? ((crc << 1) ^ 0x1021) & 0xFFFF
+          : (crc << 1) & 0xFFFF;
     }
   }
   return crc;
@@ -150,7 +153,8 @@ enum LinkFaultKind {
 
 /// A flusbserial/libusb failure mapped to something a human can act on.
 class LinkFault {
-  const LinkFault(this.kind, this.code, this.message, {required this.recoverable});
+  const LinkFault(this.kind, this.code, this.message,
+      {required this.recoverable});
 
   /// Semantic category, driving the connection status shown in the UI.
   final LinkFaultKind kind;
@@ -175,34 +179,48 @@ class LinkFault {
 /// strings like `bulkTransferIn error: LIBUSB_ERROR_NO_DEVICE`
 /// (`_libusb.describeError` == `libusb_error_name`), so we key off that token.
 const Map<String, LinkFault> _libusbFaults = {
-  'LIBUSB_ERROR_IO': LinkFault(LinkFaultKind.disconnected, 'LIBUSB_ERROR_IO',
-      'Link dropped (I/O error)', recoverable: true),
+  'LIBUSB_ERROR_IO': LinkFault(
+      LinkFaultKind.disconnected, 'LIBUSB_ERROR_IO', 'Link dropped (I/O error)',
+      recoverable: true),
   'LIBUSB_ERROR_INVALID_PARAM': LinkFault(LinkFaultKind.protocol,
-      'LIBUSB_ERROR_INVALID_PARAM', 'Invalid USB parameter', recoverable: false),
-  'LIBUSB_ERROR_ACCESS': LinkFault(LinkFaultKind.permission, 'LIBUSB_ERROR_ACCESS',
+      'LIBUSB_ERROR_INVALID_PARAM', 'Invalid USB parameter',
+      recoverable: false),
+  'LIBUSB_ERROR_ACCESS': LinkFault(
+      LinkFaultKind.permission,
+      'LIBUSB_ERROR_ACCESS',
       'Permission denied — add yourself to the "dialout" group, or grant the '
-      'snap raw-usb, then reconnect', recoverable: false),
+          'snap raw-usb, then reconnect',
+      recoverable: false),
   'LIBUSB_ERROR_NO_DEVICE': LinkFault(LinkFaultKind.disconnected,
-      'LIBUSB_ERROR_NO_DEVICE', 'Device disconnected', recoverable: true),
+      'LIBUSB_ERROR_NO_DEVICE', 'Device disconnected',
+      recoverable: true),
   'LIBUSB_ERROR_NOT_FOUND': LinkFault(LinkFaultKind.disconnected,
-      'LIBUSB_ERROR_NOT_FOUND', 'Device interface not found', recoverable: true),
+      'LIBUSB_ERROR_NOT_FOUND', 'Device interface not found',
+      recoverable: true),
   'LIBUSB_ERROR_BUSY': LinkFault(LinkFaultKind.busy, 'LIBUSB_ERROR_BUSY',
-      'Device is in use by another program', recoverable: false),
-  'LIBUSB_ERROR_TIMEOUT': LinkFault(LinkFaultKind.timeout, 'LIBUSB_ERROR_TIMEOUT',
-      'Timed out — the device is not responding', recoverable: true),
-  'LIBUSB_ERROR_OVERFLOW': LinkFault(LinkFaultKind.protocol, 'LIBUSB_ERROR_OVERFLOW',
-      'USB overflow (device sent more than requested)', recoverable: true),
-  'LIBUSB_ERROR_PIPE': LinkFault(LinkFaultKind.disconnected, 'LIBUSB_ERROR_PIPE',
-      'Endpoint stalled', recoverable: true),
+      'Device is in use by another program',
+      recoverable: false),
+  'LIBUSB_ERROR_TIMEOUT': LinkFault(LinkFaultKind.timeout,
+      'LIBUSB_ERROR_TIMEOUT', 'Timed out — the device is not responding',
+      recoverable: true),
+  'LIBUSB_ERROR_OVERFLOW': LinkFault(LinkFaultKind.protocol,
+      'LIBUSB_ERROR_OVERFLOW', 'USB overflow (device sent more than requested)',
+      recoverable: true),
+  'LIBUSB_ERROR_PIPE': LinkFault(
+      LinkFaultKind.disconnected, 'LIBUSB_ERROR_PIPE', 'Endpoint stalled',
+      recoverable: true),
   'LIBUSB_ERROR_INTERRUPTED': LinkFault(LinkFaultKind.disconnected,
-      'LIBUSB_ERROR_INTERRUPTED', 'Transfer interrupted', recoverable: true),
-  'LIBUSB_ERROR_NO_MEM': LinkFault(LinkFaultKind.unknown, 'LIBUSB_ERROR_NO_MEM',
-      'Out of memory', recoverable: false),
+      'LIBUSB_ERROR_INTERRUPTED', 'Transfer interrupted',
+      recoverable: true),
+  'LIBUSB_ERROR_NO_MEM': LinkFault(
+      LinkFaultKind.unknown, 'LIBUSB_ERROR_NO_MEM', 'Out of memory',
+      recoverable: false),
   'LIBUSB_ERROR_NOT_SUPPORTED': LinkFault(LinkFaultKind.unsupported,
       'LIBUSB_ERROR_NOT_SUPPORTED', 'Not supported on this platform',
       recoverable: false),
-  'LIBUSB_ERROR_OTHER': LinkFault(LinkFaultKind.unknown, 'LIBUSB_ERROR_OTHER',
-      'USB error', recoverable: true),
+  'LIBUSB_ERROR_OTHER': LinkFault(
+      LinkFaultKind.unknown, 'LIBUSB_ERROR_OTHER', 'USB error',
+      recoverable: true),
 };
 
 /// Map any flusbserial/libusb failure (a thrown String, Exception, or Dart
@@ -215,28 +233,36 @@ LinkFault classifyLinkError(Object error) {
   if (token != null) {
     final f = _libusbFaults[token];
     if (f != null) return f;
-    return LinkFault(LinkFaultKind.unknown, token, 'USB error', recoverable: true);
+    return LinkFault(LinkFaultKind.unknown, token, 'USB error',
+        recoverable: true);
   }
   final low = raw.toLowerCase();
-  if (low.contains('unsupported') || low.contains('createdevice returned null')) {
+  if (low.contains('unsupported') ||
+      low.contains('createdevice returned null')) {
     return const LinkFault(LinkFaultKind.unsupported, '',
-        'Unsupported device (no CDC serial interface)', recoverable: false);
+        'Unsupported device (no CDC serial interface)',
+        recoverable: false);
   }
   if (low.contains('timed out') || low.contains('timeout')) {
     return const LinkFault(LinkFaultKind.timeout, '',
-        'Timed out opening the device — is it still attached?', recoverable: true);
+        'Timed out opening the device — is it still attached?',
+        recoverable: true);
   }
   if (low.contains('busy') || low.contains('in use')) {
-    return const LinkFault(LinkFaultKind.busy, '',
-        'Device is in use by another program', recoverable: false);
+    return const LinkFault(
+        LinkFaultKind.busy, '', 'Device is in use by another program',
+        recoverable: false);
   }
   if (low.contains('permission') || low.contains('access')) {
-    return const LinkFault(LinkFaultKind.permission, '',
-        'Permission denied opening the device', recoverable: false);
+    return const LinkFault(
+        LinkFaultKind.permission, '', 'Permission denied opening the device',
+        recoverable: false);
   }
   if (low.contains('libusb initialization')) {
-    return const LinkFault(LinkFaultKind.unsupported, '',
-        'libusb is unavailable', recoverable: false);
+    return const LinkFault(
+        LinkFaultKind.unsupported, '', 'libusb is unavailable',
+        recoverable: false);
   }
-  return LinkFault(LinkFaultKind.unknown, '', 'Error: $raw', recoverable: false);
+  return LinkFault(LinkFaultKind.unknown, '', 'Error: $raw',
+      recoverable: false);
 }

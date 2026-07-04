@@ -80,7 +80,11 @@ class AppShell extends StatelessWidget {
   const AppShell({super.key});
 
   static const _titles = ['Dashboard', 'Console', 'Settings'];
-  static const _icons = [YaruIcons.monitor, YaruIcons.terminal, YaruIcons.settings];
+  static const _icons = [
+    YaruIcons.monitor,
+    YaruIcons.terminal,
+    YaruIcons.settings
+  ];
 
   @override
   Widget build(BuildContext context) {
