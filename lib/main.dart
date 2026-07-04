@@ -1,6 +1,9 @@
+import 'dart:async';
+import 'dart:io' show Platform, ProcessSignal, exit;
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flusbserial/flusbserial.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yaru/yaru.dart';
@@ -34,6 +37,7 @@ class ClickscopeApp extends ConsumerStatefulWidget {
 
 class _ClickscopeAppState extends ConsumerState<ClickscopeApp> {
   late final AppLifecycleListener _lifecycle;
+  final List<StreamSubscription<ProcessSignal>> _signalSubs = [];
 
   @override
   void initState() {
@@ -52,10 +56,50 @@ class _ClickscopeAppState extends ConsumerState<ClickscopeApp> {
         return AppExitResponse.exit;
       },
     );
+    _installSignalHandlers();
+  }
+
+  // Termination signals (Ctrl+C=SIGINT, `kill`/`snap stop`=SIGTERM, terminal
+  // hangup=SIGHUP) don't go through the window-close path, so release the USB
+  // device here too — otherwise the port is left claimed until the kernel
+  // reclaims the fd. Dart delivers signals as ordinary event-loop events, NOT
+  // in an async-signal-handler context, so (unlike a C handler) it is safe to
+  // run the libusb teardown here. We deliberately do NOT catch crash signals
+  // (SIGSEGV/SIGBUS): the process memory is untrustworthy and the kernel
+  // already reclaims every fd — including the usbfs handle — on process death.
+  void _installSignalHandlers() {
+    if (kIsWeb || !(Platform.isLinux || Platform.isMacOS)) return;
+    for (final sig in const [
+      ProcessSignal.sigint,
+      ProcessSignal.sigterm,
+      ProcessSignal.sighup,
+    ]) {
+      try {
+        _signalSubs.add(sig.watch().listen(_onExitSignal));
+      } catch (_) {
+        // Not every signal is watchable on every platform; skip quietly.
+      }
+    }
+  }
+
+  bool _exiting = false;
+  void _onExitSignal(ProcessSignal sig) {
+    if (_exiting) return;
+    _exiting = true;
+    logv('$sig received — releasing the device and exiting');
+    // quiesce() cancels the timers, stops the read loop and fire-and-forget
+    // closes the device (flusbserial lowers DTR/RTS, releases the interface and
+    // — with auto-detach — re-attaches the kernel driver). Give it a brief
+    // moment to land, then exit; the kernel reclaims the fd regardless.
+    ref.read(telemetryProvider.notifier).quiesce();
+    Future<void>.delayed(const Duration(milliseconds: 250), () => exit(0));
   }
 
   @override
   void dispose() {
+    for (final s in _signalSubs) {
+      s.cancel();
+    }
     _lifecycle.dispose();
     super.dispose();
   }
