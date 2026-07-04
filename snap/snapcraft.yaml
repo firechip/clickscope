@@ -60,7 +60,13 @@ parts:
     # cache"). Removing them forces a clean, in-container configure.
     override-pull: |
       craftctl default
-      rm -rf build .dart_tool .flutter-plugins .flutter-plugins-dependencies
+      # Strip host-generated artefacts that `source: .` copies in. build/ has a
+      # CMakeCache with an absolute host path; linux/flutter/ephemeral has
+      # .plugin_symlinks pointing at absolute host paths ($HOME/...) that don't
+      # exist in the build container — both break the in-container cmake. Flutter
+      # regenerates all of these during the build.
+      rm -rf build .dart_tool .flutter-plugins .flutter-plugins-dependencies \
+             linux/flutter/ephemeral
     flutter-target: lib/main.dart
     build-packages:
       - libusb-1.0-0-dev
