@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flusbserial/flusbserial.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -153,6 +155,7 @@ class _ConnectionPanelState extends ConsumerState<_ConnectionPanel> {
   List<UsbDevice> _devices = const [];
   UsbDevice? _selected;
   bool _scanning = false;
+  bool _autoConnected = false;
 
   @override
   void initState() {
@@ -169,12 +172,19 @@ class _ConnectionPanelState extends ConsumerState<_ConnectionPanel> {
         return ab != bb ? ab - bb : a.identifier.compareTo(b.identifier);
       });
     if (!mounted) return;
+    final board = list.where((d) => isLikelyBoard(d.vendorId)).firstOrNull;
     setState(() {
       _devices = list;
-      _selected = list.where((d) => isLikelyBoard(d.vendorId)).firstOrNull ??
-          list.firstOrNull;
+      _selected = board ?? list.firstOrNull;
       _scanning = false;
     });
+    // Auto-connect once, on first open, to the detected board.
+    if (!_autoConnected &&
+        board != null &&
+        !ref.read(telemetryProvider).isConnected) {
+      _autoConnected = true;
+      unawaited(ref.read(telemetryProvider.notifier).connect(board));
+    }
   }
 
   @override
