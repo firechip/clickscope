@@ -9,8 +9,6 @@ telemetry off USB CDC-ACM, and shows the 3-axis accelerometer stream live —
 scrolling X/Y/Z (+ magnitude) plot, a bubble-level tilt view, numeric readouts,
 link-quality stats, a device console, and CSV recording.
 
-![Clickscope](doc/screenshot.png)
-
 ## What it shows
 
 The firmware (Zephyr, FreeRTOS, RT-Thread, TinyGo, Rust, MicroPython, Ruby,
