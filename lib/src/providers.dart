@@ -114,10 +114,13 @@ final telemetryProvider =
 class TelemetryController extends Notifier<TelemetryState> {
   UsbSerialDevice? _device;
   bool _reading = false;
+  bool _disposed = false;
   Future<void>? _readFuture;
   final List<int> _rx = [];
 
   Timer? _renderTimer;
+  Timer? _reconnectTimer;
+  bool _reconnecting = false;
   final List<Sample> _incoming = [];
   final ListQueue<Sample> _window = ListQueue<Sample>();
   final List<String> _log = [];
@@ -143,11 +146,49 @@ class TelemetryController extends Notifier<TelemetryState> {
         Timer.periodic(const Duration(milliseconds: 16), (_) => _flush());
     ref.onDispose(() {
       _renderTimer?.cancel();
+      _reconnectTimer?.cancel();
       _reading = false;
       _device?.close();
       _recordSink?.close();
     });
     return const TelemetryState();
+  }
+
+  /// Synchronous quiesce for app exit, called from [onExitRequested] which
+  /// fires on window close (the engine wires the Yaru/WM/Wayland close through
+  /// System.requestAppExit).
+  ///
+  /// Cancelling the 16 ms render timer FIRST is the actual fix for the
+  /// window-close CRITICAL cascade: on Flutter 3.44 every presented frame posts
+  /// a `g_idle_add(redraw_cb, view)` that fl_view_dispose never removes, so a
+  /// queued redraw_cb fires on the freed FlView during teardown. Stop producing
+  /// frames and none is pending at teardown → no cascade.
+  ///
+  /// The device close and CSV flush are fire-and-forget — never awaited on the
+  /// UI isolate, where a blocking libusb_close under WSLg could stall exit; the
+  /// kernel reclaims the handle on process exit regardless. Idempotent.
+  void quiesce() {
+    if (_disposed) return;
+    _disposed = true;
+    _renderTimer?.cancel();
+    _renderTimer = null;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _reading = false;
+    _slog('quiesce: render pump stopped for exit');
+    final d = _device;
+    _device = null;
+    if (d != null) unawaited(_closeQuietly(d));
+    final sink = _recordSink;
+    _recordSink = null;
+    if (sink != null) {
+      unawaited(() async {
+        try {
+          await sink.flush();
+          await sink.close();
+        } catch (_) {}
+      }());
+    }
   }
 
   // ---- device discovery -----------------------------------------------------
@@ -196,6 +237,8 @@ class TelemetryController extends Notifier<TelemetryState> {
       _slog('setDtr(true) ok — connected, starting read loop');
       _device = device;
       _reading = true;
+      _reconnectTimer?.cancel(); // connected — stop any reconnect watch
+      _reconnectTimer = null;
       state = state.copyWith(
         status: ConnStatus.connected,
         message: 'Streaming · 115200 8N1',
@@ -265,6 +308,12 @@ class TelemetryController extends Notifier<TelemetryState> {
 
   Future<void> disconnect({bool silent = false}) async {
     if (_device != null || _reading) _slog('disconnect(silent=$silent)…');
+    // A user-initiated disconnect must stop auto-reconnect; the internal silent
+    // disconnect from connect() leaves the watch alone.
+    if (!silent) {
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
+    }
     _reading = false;
     // Let the in-flight blocking read return and the loop exit BEFORE closing
     // the handle. Closing libusb under a pending transfer leaves the interface
@@ -307,14 +356,27 @@ class TelemetryController extends Notifier<TelemetryState> {
       try {
         data = await dev.read(256, 5);
       } catch (e) {
-        if (!e.toString().toLowerCase().contains('timeout')) {
+        final m = e.toString().toLowerCase();
+        if (!m.contains('timeout')) {
           _slog('read() error (loop exiting): $e');
           if (_reading) {
             _reading = false;
+            final unplugged = m.contains('no_device') ||
+                m.contains('no device') ||
+                m.contains('not found') ||
+                m.contains('no such');
+            // Free our handle so the port is available again, then watch for
+            // the board to reappear (unplug/replug, or WSL/usbip re-enumeration).
+            final d = _device;
+            _device = null;
+            if (d != null) unawaited(_closeQuietly(d));
             state = state.copyWith(
               status: ConnStatus.error,
-              message: 'Link lost: $e',
+              message: unplugged
+                  ? 'Device disconnected — waiting for it to come back…'
+                  : 'Link lost: $e',
             );
+            _startReconnectWatch();
           }
           return;
         }
@@ -325,6 +387,38 @@ class TelemetryController extends Notifier<TelemetryState> {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     }
+  }
+
+  Future<void> _closeQuietly(UsbSerialDevice d) async {
+    try {
+      await d.close();
+    } catch (_) {}
+  }
+
+  /// After an unexpected link loss, poll for the board and reconnect when it
+  /// reappears. A manual Disconnect cancels this; a successful connect() too.
+  void _startReconnectWatch() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+      if (_disposed || _device != null || _reconnecting) return;
+      _reconnecting = true;
+      try {
+        UsbDevice? board;
+        for (final d in await scan()) {
+          if (isLikelyBoard(d.vendorId)) {
+            board = d;
+            break;
+          }
+        }
+        if (board != null) {
+          _slog('reconnect: board reappeared, reconnecting…');
+          await connect(board);
+        }
+      } catch (_) {
+      } finally {
+        _reconnecting = false;
+      }
+    });
   }
 
   // ---- framing + decode -----------------------------------------------------

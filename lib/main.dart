@@ -1,3 +1,5 @@
+import 'dart:ui' show AppExitResponse;
+
 import 'package:flusbserial/flusbserial.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,11 +20,43 @@ Future<void> main() async {
   runApp(const ProviderScope(child: ClickscopeApp()));
 }
 
-class ClickscopeApp extends ConsumerWidget {
+class ClickscopeApp extends ConsumerStatefulWidget {
   const ClickscopeApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ClickscopeApp> createState() => _ClickscopeAppState();
+}
+
+class _ClickscopeAppState extends ConsumerState<ClickscopeApp> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // The Yaru title-bar close button calls gtk_window_close(); the Flutter
+    // engine routes that (via window_delete_event_cb → System.requestAppExit)
+    // to onExitRequested here. We synchronously cancel the 16 ms render timer
+    // BEFORE returning exit, so the engine stops posting the redraw idle
+    // callbacks that would otherwise fire on the freed FlView during teardown
+    // and spew the "FlutterEngineRemoveView" + FlView/GtkWidget CRITICAL
+    // cascade. quiesce() must not block (no awaited libusb close) or exit would
+    // stall on the platform thread.
+    _lifecycle = AppLifecycleListener(
+      onExitRequested: () async {
+        ref.read(telemetryProvider.notifier).quiesce();
+        return AppExitResponse.exit;
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final mode = ref.watch(themeModeProvider);
     return YaruTheme(
       builder: (context, yaru, child) => MaterialApp(
