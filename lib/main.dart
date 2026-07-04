@@ -5,15 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yaru/yaru.dart';
 
+import 'src/log.dart';
 import 'src/pages.dart';
 import 'src/providers.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  initLogging(args); // --verbose / -v / CLICKSCOPE_VERBOSE
   await YaruWindowTitleBar.ensureInitialized();
   try {
     UsbSerialDevice.init();
     UsbSerialDevice.setAutoDetachKernelDriver(true);
+    UsbSerialDevice.debugLogging = verboseLogging; // gate the library's traces
   } catch (_) {
     // libusb unavailable — the UI still runs, discovery just returns nothing.
   }

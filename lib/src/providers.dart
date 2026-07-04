@@ -7,11 +7,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'log.dart';
 import 'telemetry.dart';
 
-/// Verbose serial log — prints to the `flutter run` console so we can trace
-/// exactly what the flusbserial/libusb layer does on connect/disconnect.
-void _slog(String m) => debugPrint('[clickscope] $m');
+/// Verbose serial trace — a no-op unless verbose logging is enabled
+/// (--verbose / -v / CLICKSCOPE_VERBOSE). Tags lines with [clickscope].
+void _slog(String m) => logv(m);
 
 /// App theme mode (light / dark / system), toggled from Settings.
 final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(

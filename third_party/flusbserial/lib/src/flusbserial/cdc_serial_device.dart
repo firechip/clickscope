@@ -203,7 +203,7 @@ class CdcSerialDevice extends UsbSerialDevice {
       dataLength,
       UsbSerialDevice.usbTimeout,
     );
-    debugPrint("Control Transfer Response: $result");
+    if (UsbSerialDevice.debugLogging) debugPrint("Control Transfer Response: $result");
     if (result < 0) {
       throw 'controlTransfer error: ${_libusb.describeError(result)}';
     }
@@ -313,7 +313,7 @@ class CdcSerialDevice extends UsbSerialDevice {
       7,
       UsbSerialDevice.usbTimeout,
     );
-    debugPrint("Control Transfer Response: $result");
+    if (UsbSerialDevice.debugLogging) debugPrint("Control Transfer Response: $result");
     Uint8List data = ptrData.cast<Uint8>().asTypedList(7);
     return data;
   }
