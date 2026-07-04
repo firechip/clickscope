@@ -1,13 +1,17 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flusbserial/flusbserial.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'telemetry.dart';
+
+/// Verbose serial log — prints to the `flutter run` console so we can trace
+/// exactly what the flusbserial/libusb layer does on connect/disconnect.
+void _slog(String m) => debugPrint('[clickscope] $m');
 
 /// App theme mode (light / dark / system), toggled from Settings.
 final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
@@ -110,6 +114,7 @@ final telemetryProvider =
 class TelemetryController extends Notifier<TelemetryState> {
   UsbSerialDevice? _device;
   bool _reading = false;
+  Future<void>? _readFuture;
   final List<int> _rx = [];
 
   Timer? _renderTimer;
@@ -165,32 +170,125 @@ class TelemetryController extends Notifier<TelemetryState> {
       message: 'Opening ${backendLabel(dev.vendorId, dev.productId)}…',
       portLabel: backendLabel(dev.vendorId, dev.productId),
     );
+    _slog('connect: ${dev.vendorId.toRadixString(16)}:'
+        '${dev.productId.toRadixString(16)} addr=${dev.identifier}');
     try {
-      final device = UsbSerialDevice.createDevice(dev, type: UsbSerialDevice.cdc);
-      if (device == null) throw Exception('unsupported device');
-      if (!await device.open()) throw Exception('could not open');
-      await device.setBaudRate(115200); // never 1200 — that reboots to BOOTSEL
-      await device.setDtr(true);
+      // Open with a FRESH device object per attempt. flusbserial's open() by
+      // VID:PID finds the board's current instance even after it re-enumerates
+      // (its libusb address changes on every reset), so a stale address in
+      // `dev` is harmless; a used device object, however, is not reusable —
+      // hence a new createDevice() each try. Up to 3 tries because a
+      // just-disconnected port can briefly report busy while the kernel
+      // re-attaches then lets us re-detach its cdc-acm driver.
+      UsbSerialDevice? device;
+      for (var attempt = 1; attempt <= 3 && device == null; attempt++) {
+        device = await _tryOpen(dev, attempt);
+        if (device == null && attempt < 3) {
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+        }
+      }
+      if (device == null) {
+        throw Exception('busy: the device is in use by another program');
+      }
+      await device.setBaudRate(115200).timeout(const Duration(seconds: 3));
+      _slog('setBaudRate(115200) ok');
+      await device.setDtr(true).timeout(const Duration(seconds: 3));
+      _slog('setDtr(true) ok — connected, starting read loop');
       _device = device;
       _reading = true;
       state = state.copyWith(
         status: ConnStatus.connected,
         message: 'Streaming · 115200 8N1',
       );
-      unawaited(_readLoop());
-    } catch (e) {
+      _readFuture = _readLoop();
+    } catch (e, st) {
+      _slog('CONNECT ERROR: $e');
+      _slog('stack: $st');
+      try {
+        await _device?.close();
+      } catch (e2) {
+        _slog('close-after-error also failed: $e2');
+      }
       _device = null;
-      state = state.copyWith(status: ConnStatus.error, message: 'Error: $e');
+      state = state.copyWith(status: ConnStatus.error, message: _friendlyError(e));
     }
   }
 
+  /// One open attempt on a fresh device object. Returns the opened device, or
+  /// null (having closed it) on any failure — so the caller can retry cleanly.
+  Future<UsbSerialDevice?> _tryOpen(UsbDevice dev, int attempt) async {
+    final device = UsbSerialDevice.createDevice(dev, type: UsbSerialDevice.cdc);
+    if (device == null) {
+      throw Exception('createDevice returned null (unsupported device)');
+    }
+    _slog('open() attempt $attempt…');
+    var opened = false;
+    try {
+      opened = await device.open().timeout(
+        const Duration(seconds: 4),
+        onTimeout: () {
+          _slog('open() attempt $attempt timed out after 4s');
+          return false;
+        },
+      );
+    } catch (e) {
+      _slog('open() attempt $attempt threw: $e');
+      opened = false;
+    }
+    _slog('open() attempt $attempt -> $opened');
+    if (opened) return device;
+    // Failed: make sure the handle/interface are released before the next try.
+    try {
+      await device.close();
+    } catch (_) {}
+    return null;
+  }
+
+  String _friendlyError(Object e) {
+    final m = e.toString().toLowerCase();
+    if (m.contains('busy') || m.contains('claim') || m.contains('resource')) {
+      return 'Device is in use by another program (close any serial monitor / '
+          'unplug-replug), then Connect again.';
+    }
+    if (m.contains('access') || m.contains('permission')) {
+      return 'Permission denied — add yourself to the "dialout" group: '
+          'sudo usermod -aG dialout \$USER (then log out / back in).';
+    }
+    if (m.contains('no device') || m.contains('not found') || m.contains('no such')) {
+      return 'Device disappeared — replug it and Rescan.';
+    }
+    if (m.contains('timeout') || m.contains('timed out')) {
+      return 'Timed out opening the device — is it still attached? Replug and retry.';
+    }
+    return 'Error: $e';
+  }
+
   Future<void> disconnect({bool silent = false}) async {
+    if (_device != null || _reading) _slog('disconnect(silent=$silent)…');
     _reading = false;
+    // Let the in-flight blocking read return and the loop exit BEFORE closing
+    // the handle. Closing libusb under a pending transfer leaves the interface
+    // claimed, so the next connect fails with "device in use".
+    try {
+      await _readFuture;
+    } catch (e) {
+      _slog('read loop ended with: $e');
+    }
+    _readFuture = null;
     final d = _device;
     _device = null;
-    try {
-      await d?.close();
-    } catch (_) {}
+    if (d != null) {
+      _slog('closing device handle…');
+      try {
+        await d.close();
+        _slog('close() ok');
+      } catch (e) {
+        _slog('close() ERROR: $e');
+      }
+      // Give the kernel a moment to re-settle its cdc-acm driver on the port
+      // before a reconnect claims it again.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
     if (!silent) {
       state = state.copyWith(
         status: ConnStatus.disconnected,
@@ -202,19 +300,29 @@ class TelemetryController extends Notifier<TelemetryState> {
   Future<void> _readLoop() async {
     final dev = _device;
     while (_reading && dev != null) {
+      // flusbserial.read() is a blocking libusb call on this isolate, so keep
+      // the timeout tiny and yield with a real timer between empty polls —
+      // otherwise a long blocking read freezes the whole UI between frames.
+      Uint8List data = Uint8List(0);
       try {
-        final data = await dev.read(256, 40);
-        if (data.isNotEmpty) _onData(data);
+        data = await dev.read(256, 5);
       } catch (e) {
-        final msg = e.toString().toLowerCase();
-        if (msg.contains('timeout')) continue; // no data this interval
-        if (_reading) {
-          _reading = false;
-          state = state.copyWith(
-            status: ConnStatus.error,
-            message: 'Link lost: $e',
-          );
+        if (!e.toString().toLowerCase().contains('timeout')) {
+          _slog('read() error (loop exiting): $e');
+          if (_reading) {
+            _reading = false;
+            state = state.copyWith(
+              status: ConnStatus.error,
+              message: 'Link lost: $e',
+            );
+          }
+          return;
         }
+      }
+      if (data.isNotEmpty) {
+        _onData(data); // got a burst — loop again immediately to drain it
+      } else {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     }
   }
