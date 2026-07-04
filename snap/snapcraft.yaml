@@ -37,6 +37,10 @@ apps:
     command: clickscope
     extensions: [gnome]
     desktop: snap/gui/clickscope.desktop
+    # Runs after the gnome extension's desktop-launch and quiets WSLg-only
+    # startup warnings (GPU/portal/ibus/a11y); a no-op on native GNOME.
+    command-chain:
+      - bin/clickscope-launch
     plugs:
       # The board is reached via libusb (flusbserial detaches the kernel
       # cdc-acm driver and does raw bulk transfers), so raw-usb — not
@@ -63,3 +67,12 @@ parts:
       - pkg-config
     stage-packages:
       - libusb-1.0-0
+
+  # Command-chain launcher that silences WSLg-only runtime warnings.
+  launcher:
+    plugin: dump
+    source: packaging
+    organize:
+      clickscope-launch: bin/clickscope-launch
+    stage: [bin/clickscope-launch]
+    prime: [bin/clickscope-launch]
