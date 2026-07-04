@@ -58,6 +58,18 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
 
+# window_manager is a transitive dependency (yaru → yaru_window →
+# yaru_window_manager) that Clickscope never uses, but its native Linux plugin
+# auto-registers, hooks the GTK toplevel, and segfaults on window-close-after-
+# idle (its window-state handler calls gtk_widget_get_toplevel /
+# gdk_window_get_state on the freed FlView). This vendored copy has the linux
+# entry removed from its flutter plugin platforms, so Flutter never registers
+# the Linux plugin — the Dart API is intact so yaru_window_manager still
+# compiles (it is never exercised on Linux). See third_party/window_manager/.
+dependency_overrides:
+  window_manager:
+    path: third_party/window_manager
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

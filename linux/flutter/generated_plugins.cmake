@@ -6,7 +6,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flusbserial
   gtk
   screen_retriever_linux
-  window_manager
   yaru_window_linux
 )
 
