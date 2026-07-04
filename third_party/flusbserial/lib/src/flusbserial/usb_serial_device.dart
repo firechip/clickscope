@@ -30,10 +30,26 @@ abstract class UsbSerialDevice implements UsbSerialInterface {
 
   static bool autoDetachKernelDriverEnabled = false;
 
-  /// Gates this library's own diagnostic debugPrint output (e.g. per-control-
-  /// transfer traces). Off by default; the host app turns it on for verbose
-  /// runs. (Vendored addition — see third_party/flusbserial/VENDORED.md.)
+  /// Gates this library's own diagnostic output (e.g. per-control-transfer
+  /// traces). Off by default. (Vendored addition — see
+  /// third_party/flusbserial/VENDORED.md.)
   static bool debugLogging = false;
+
+  /// Optional sink for this library's diagnostic traces. When set, [log]
+  /// routes here so the host app can tag and gate the output uniformly with its
+  /// own logs; otherwise it falls back to debugPrint when [debugLogging] is on.
+  static void Function(String message)? logHandler;
+
+  /// Emit a diagnostic line — via [logHandler] if set, else debugPrint when
+  /// [debugLogging] is enabled.
+  static void log(String message) {
+    final handler = logHandler;
+    if (handler != null) {
+      handler(message);
+    } else if (debugLogging) {
+      debugPrint(message);
+    }
+  }
 
   static final int usbTimeout = 0;
   static final Libusb _libusb = libusb;

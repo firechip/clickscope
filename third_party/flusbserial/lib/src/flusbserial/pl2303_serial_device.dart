@@ -274,7 +274,7 @@ class Pl2303SerialDevice extends UsbSerialDevice {
     if (result < 0) {
       throw 'controlTransfer error: ${_libusb.describeError(result)}';
     }
-    if (UsbSerialDevice.debugLogging) debugPrint('Control Transfer Response: $result');
+    UsbSerialDevice.log('Control Transfer Response: $result');
     if (ptrData != nullptr) {
       ffi.calloc.free(ptrData);
     }

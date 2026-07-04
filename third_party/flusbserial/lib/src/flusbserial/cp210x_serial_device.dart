@@ -372,7 +372,7 @@ class Cp210XSerialDevice extends UsbSerialDevice {
       2,
       UsbSerialDevice.usbTimeout,
     );
-    if (UsbSerialDevice.debugLogging) debugPrint("Control Transfer Response: $result");
+    UsbSerialDevice.log("Control Transfer Response: $result");
     Uint8List data = ptrData.cast<Uint8>().asTypedList(2);
     return (data[1] << 8) | (data[0] & 0xFF);
   }

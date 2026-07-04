@@ -16,7 +16,9 @@ Future<void> main(List<String> args) async {
   try {
     UsbSerialDevice.init();
     UsbSerialDevice.setAutoDetachKernelDriver(true);
-    UsbSerialDevice.debugLogging = verboseLogging; // gate the library's traces
+    // Route flusbserial's own traces through our logger so they get the same
+    // [clickscope] tag and --verbose gating as the app's lines.
+    UsbSerialDevice.logHandler = logv;
   } catch (_) {
     // libusb unavailable — the UI still runs, discovery just returns nothing.
   }
