@@ -1,40 +1,39 @@
-#!/bin/sh
+#!/bin/bash
 # Clickscope snap command-chain launcher.
 #
-# Runs after the gnome extension's desktop-launch (so these exports win) and
-# immediately exec's the app. Its only job is to quiet a batch of harmless
-# startup warnings that appear when the strict snap runs under WSLg — where
-# there is no working DRI/Zink GPU, no xdg-desktop-portal, no host ibus, and
-# no AT-SPI accessibility bus. Every override is gated on WSL detection so a
-# native Ubuntu GNOME desktop is left completely untouched (it keeps hardware
-# GL, portals, input methods and accessibility).
+# Runs after the gnome extension's desktop-launch and immediately exec's the
+# app. Its only job is to quiet startup noise that appears when the strict snap
+# runs under WSLg — where there is no working DRI/Zink GPU, no
+# xdg-desktop-portal, no host ibus, and no AT-SPI accessibility bus. Everything
+# here is gated on WSL detection so a native Ubuntu GNOME desktop is left
+# completely untouched (it keeps hardware GL, portals, input methods, a11y and
+# full stderr).
+
+# A valid default cursor theme is harmless everywhere (${VAR:-…} never clobbers
+# a theme the session already set); Adwaita ships in gtk-common-themes.
+export XCURSOR_THEME="${XCURSOR_THEME:-Adwaita}"
+
 if grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then
-    # Mesa cannot reach /dev/dri under WSLg and its Zink (GL-on-Vulkan) probe
-    # fails with VK_ERROR_INCOMPATIBLE_DRIVER; go straight to llvmpipe instead
-    # of logging the EGL/MESA-LOADER/ZINK errors. Value "1" (not "true", which
-    # only newer Mesa accepts).
+    # Mesa can't reach /dev/dri and its Zink probe fails; go straight to
+    # llvmpipe instead of logging EGL/MESA/ZINK errors.
     export LIBGL_ALWAYS_SOFTWARE=1
-    # No xdg-desktop-portal is running, so don't try to read the Settings
-    # portal (avoids the "No such interface org.freedesktop.portal.Settings").
+    # No xdg-desktop-portal is running; don't read the Settings portal.
     export GTK_USE_PORTAL=0
-    # There is no host ibus; the extension's GTK_IM_MODULE=ibus makes libibus
-    # mkdir a confined-away path and log ENOTDIR. Use GTK's built-in compose
-    # context — the app has no input-method needs.
+    # No host ibus; the extension's GTK_IM_MODULE=ibus makes libibus mkdir a
+    # confined-away path. Use GTK's built-in compose context.
     export GTK_IM_MODULE=gtk-im-context-simple
     export XMODIFIERS=@im=none
-    # NOTE on accessibility (atk): under WSLg there is no AT-SPI bus, so GTK's
-    # atk path occasionally logs a benign "get_device_events_reply: unknown
-    # signature" warning. We deliberately do NOT set NO_AT_BRIDGE/GTK_A11Y:
-    # half-disabling at-spi turns that *intermittent* WARNING into a
-    # *consistent* Atk-CRITICAL atk_socket_embed assertion (equally harmless
-    # but louder). Leaving accessibility alone is the quieter option.
-fi
 
-# Give GDK a cursor theme that is always present in the snap (Adwaita ships in
-# gtk-common-themes). The ${VAR:-default} form never clobbers a theme the
-# session already set, so this is safe everywhere. (Note: this does not
-# suppress GDK's one-off "empty cursor name" notice under WSLg, which is
-# harmless — the cursor still resolves via the theme.)
-export XCURSOR_THEME="${XCURSOR_THEME:-Adwaita}"
+    # A few warnings have no clean env-var cure under confined WSLg: there is no
+    # AT-SPI bus (so atk-bridge logs "unknown signature", and half-disabling it
+    # only turns that into a louder atk_socket_embed CRITICAL), and GDK's cursor
+    # probe warns about an empty cursor name even with a valid theme. Drop just
+    # those three literal lines from stderr; everything else — real GTK/USB
+    # errors and the app's own [clickscope] logs — passes straight through.
+    exec "$@" 2> >(grep --line-buffered -vaF \
+        -e 'atk-bridge: get_device_events_reply' \
+        -e 'atk_socket_embed' \
+        -e 'from the cursor theme' >&2)
+fi
 
 exec "$@"
