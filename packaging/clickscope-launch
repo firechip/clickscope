@@ -13,6 +13,17 @@
 # a theme the session already set); Adwaita ships in gtk-common-themes.
 export XCURSOR_THEME="${XCURSOR_THEME:-Adwaita}"
 
+# stderr lines to drop. All are specific, known-benign, and let everything else
+# — real GTK/USB errors and the app's own [clickscope] logs — pass through.
+#
+# Filtered on EVERY Linux (it's a Flutter 3.44 engine bug, not WSL-specific):
+#   "FlutterEngineRemoveView returned kInvalidArguments / The implicit view
+#   cannot be removed" — fl_view_dispose unconditionally asks the engine to
+#   remove the implicit view (id 0) on window close; the engine refuses (a
+#   no-op). Harmless; fixed in newer engines. Remove this filter once the app
+#   is built against a Flutter past that fix.
+FILTERS=(-e 'FlutterEngineRemoveView' -e 'The implicit view cannot be removed')
+
 if grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then
     # Mesa can't reach /dev/dri and its Zink probe fails; go straight to
     # llvmpipe instead of logging EGL/MESA/ZINK errors.
@@ -24,16 +35,13 @@ if grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then
     export GTK_IM_MODULE=gtk-im-context-simple
     export XMODIFIERS=@im=none
 
-    # A few warnings have no clean env-var cure under confined WSLg: there is no
-    # AT-SPI bus (so atk-bridge logs "unknown signature", and half-disabling it
-    # only turns that into a louder atk_socket_embed CRITICAL), and GDK's cursor
-    # probe warns about an empty cursor name even with a valid theme. Drop just
-    # those three literal lines from stderr; everything else — real GTK/USB
-    # errors and the app's own [clickscope] logs — passes straight through.
-    exec "$@" 2> >(grep --line-buffered -vaF \
-        -e 'atk-bridge: get_device_events_reply' \
-        -e 'atk_socket_embed' \
-        -e 'from the cursor theme' >&2)
+    # WSLg-only, no clean env-var cure: there is no AT-SPI bus (so atk-bridge
+    # logs "unknown signature", and half-disabling it only turns that into a
+    # louder atk_socket_embed CRITICAL), and GDK's cursor probe warns about an
+    # empty cursor name even with a valid theme.
+    FILTERS+=(-e 'atk-bridge: get_device_events_reply' \
+              -e 'atk_socket_embed' \
+              -e 'from the cursor theme')
 fi
 
-exec "$@"
+exec "$@" 2> >(grep --line-buffered -vaF "${FILTERS[@]}" >&2)
