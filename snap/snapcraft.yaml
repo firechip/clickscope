@@ -1,7 +1,7 @@
 name: clickscope
 title: Clickscope
 base: core22
-version: '1.0.0'
+version: '1.1.0'
 license: MIT
 icon: snap/gui/clickscope.png
 website: https://github.com/firechip/clickscope
