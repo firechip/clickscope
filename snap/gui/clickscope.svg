@@ -1,0 +1,41 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a1230"/>
+      <stop offset="1" stop-color="#1b0713"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12222b"/>
+      <stop offset="1" stop-color="#0a1319"/>
+    </linearGradient>
+  </defs>
+
+  <!-- app tile -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bg)"/>
+  <!-- scope screen -->
+  <rect x="72" y="96" width="368" height="320" rx="28" fill="url(#screen)" stroke="#e95420" stroke-width="4"/>
+
+  <!-- grid -->
+  <g stroke="#2b4653" stroke-width="2" opacity="0.7">
+    <line x1="72"  y1="176" x2="440" y2="176"/>
+    <line x1="72"  y1="256" x2="440" y2="256"/>
+    <line x1="72"  y1="336" x2="440" y2="336"/>
+    <line x1="164" y1="96"  x2="164" y2="416"/>
+    <line x1="256" y1="96"  x2="256" y2="416"/>
+    <line x1="348" y1="96"  x2="348" y2="416"/>
+  </g>
+
+  <!-- three accelerometer traces (X orange, Y green, Z blue) -->
+  <g fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M84 256 C 130 150, 176 150, 210 232 S 300 372, 348 258 S 420 176, 428 214"
+          stroke="#e95420"/>
+    <path d="M84 300 C 140 300, 168 214, 224 214 S 306 322, 360 300 428 288, 428 288"
+          stroke="#26a269" opacity="0.95"/>
+    <path d="M84 210 C 150 236, 190 300, 250 290 S 330 214, 388 240 428 250, 428 250"
+          stroke="#3584e4" opacity="0.95"/>
+  </g>
+
+  <!-- sweep dot on the orange trace -->
+  <circle cx="348" cy="258" r="12" fill="#ffffff"/>
+  <circle cx="348" cy="258" r="12" fill="none" stroke="#e95420" stroke-width="4"/>
+</svg>

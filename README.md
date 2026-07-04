@@ -59,10 +59,14 @@ sudo usermod -aG dialout $USER   # then log out / back in
 **Snap** (see `snap/snapcraft.yaml`):
 
 ```bash
-snapcraft                                   # builds clickscope_*.snap
+snapcraft                                   # builds clickscope_*.snap (uses LXD)
 sudo snap install --dangerous clickscope_*.snap
-sudo snap connect clickscope:serial-port    # grant USB-serial access
+sudo snap connect clickscope:raw-usb        # grant raw USB (libusb) access
 ```
+
+Clickscope talks to the board over **libusb** (it opens the CDC device directly
+and detaches the kernel driver), so the interface that matters is `raw-usb`,
+not `serial-port`.
 
 **Portable tarball** (no packaging tools):
 

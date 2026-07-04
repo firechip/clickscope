@@ -1,6 +1,13 @@
 name: clickscope
+title: Clickscope
 base: core22
 version: '1.0.0'
+license: MIT
+icon: snap/gui/clickscope.png
+website: https://github.com/firechip/clickscope
+source-code: https://github.com/firechip/clickscope
+issues: https://github.com/firechip/clickscope/issues
+contact: https://github.com/firechip/clickscope/issues
 summary: Live oscilloscope for Click-board accelerometer telemetry
 description: |
   Clickscope connects to a MikroElektronika Click board running the clickforge
@@ -9,13 +16,21 @@ description: |
   bubble-level tilt view, numeric readouts, streaming-rate and CRC-error stats,
   a device console, and one-click CSV recording. Ubuntu-native (Flutter + Yaru).
 
-  After install, grant USB-serial access:
-    sudo snap connect clickscope:serial-port
-  and, for raw CDC-ACM adapters that appear as generic USB:
+  Clickscope reads the board over libusb (it opens the CDC device directly and
+  detaches the kernel driver), so after install grant raw USB access:
     sudo snap connect clickscope:raw-usb
 
 grade: stable
 confinement: strict
+
+# libusb is loaded at runtime via dlopen (dart_libusb FFI), not linked as a
+# NEEDED dependency, so snapcraft's library linter can't see the usage and
+# reports it "unused". It is required (the app opens the USB device through
+# it); suppress that single false positive.
+lint:
+  ignore:
+    - library:
+        - usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.3.0
 
 apps:
   clickscope:
@@ -23,10 +38,10 @@ apps:
     extensions: [gnome]
     desktop: snap/gui/clickscope.desktop
     plugs:
-      # /dev/ttyACM* /dev/ttyUSB* — the CDC-ACM node the board enumerates as.
-      # Hotplug-created and NOT auto-connected: the user runs `snap connect`.
-      - serial-port
-      # Fallback for adapters snapd exposes only as a raw USB device.
+      # The board is reached via libusb (flusbserial detaches the kernel
+      # cdc-acm driver and does raw bulk transfers), so raw-usb — not
+      # serial-port — is the interface that matters. Not auto-connected on
+      # classic desktops: the user runs `snap connect clickscope:raw-usb`.
       - raw-usb
       - hardware-observe
 
@@ -34,6 +49,14 @@ parts:
   clickscope:
     plugin: flutter
     source: .
+    # Strip host build artefacts that `source: .` would otherwise copy in.
+    # A local `flutter build` leaves build/CMakeCache.txt with an absolute host
+    # path baked in; inside the build container that path no longer matches and
+    # cmake aborts ("source ... does not match the source used to generate
+    # cache"). Removing them forces a clean, in-container configure.
+    override-pull: |
+      craftctl default
+      rm -rf build .dart_tool .flutter-plugins .flutter-plugins-dependencies
     flutter-target: lib/main.dart
     build-packages:
       - libusb-1.0-0-dev

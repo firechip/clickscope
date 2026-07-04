@@ -46,3 +46,6 @@ app.*.map.json
 .fvm/
 # release artifact
 clickscope-linux-x64.tar.gz
+
+# Snap build artifacts
+*.snap
